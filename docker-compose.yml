@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+
+  discovery-server:
+    build: ./Server
+    ports:
+      - "8761:8761"
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: produtos
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  produto-service:
+    build: ./microservicos-produto
+    ports:
+      - "8081:8081"
+    depends_on:
+      - discovery-server
+      - postgres
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/produtos
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+
+  pedido-service:
+    build: ./microservicos-pedido
+    ports:
+      - "8082:8082"
+    depends_on:
+      - discovery-server
+      - postgres
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/produtos
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+
+  gateway:
+    build: ./Gateway
+    ports:
+      - "8083:8083"
+    depends_on:
+      - discovery-server
+
+volumes:
+  postgres_data:
