@@ -31,7 +31,7 @@ public class ProdutoIntegrationTest extends ClasseAbstracaoTeste {
         repository.deleteAll();
     }
 
-    @DisplayName("Deve listar com o produto com sucesso, dado um ID válido")
+    @DisplayName("Deve listar o produto com sucesso dado um ID válido")
     @Test
     void deveListarProdutoComSucesso() throws Exception {
 
@@ -43,6 +43,15 @@ public class ProdutoIntegrationTest extends ClasseAbstracaoTeste {
                 .andExpect(jsonPath("$.nome").value("Lapis"))
                 .andExpect(jsonPath("$.preco").value(1.00))
                 .andExpect(jsonPath("$.estoque").value(100));
+    }
+
+    @DisplayName("Deve falhar ao listar produto com ID inválido")
+    @Test
+    void deveFalharAoListarProdutoComIdInvalido() throws Exception {
+
+        mockMvc.perform(get("/produtos/{id}", 1L))
+                .andExpect(status().isNotFound())
+                .andExpect(status().reason("Produto não encontrado"));
     }
 
     @DisplayName("Deve criar o produto com sucesso dado um JSON válido")

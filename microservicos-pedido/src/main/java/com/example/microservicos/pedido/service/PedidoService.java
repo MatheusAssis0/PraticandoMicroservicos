@@ -34,11 +34,11 @@ public class PedidoService {
         ProdutoResponseDto produto = produtoClient.getProductById(dto.produtoId());
 
         if(produto == null){
-            throw new RuntimeException("Produto não encontrado");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Produto não encontrado");
         }
 
         if(produto.estoque() < dto.quantidade()){
-            throw new RuntimeException("Estoque insuficiente");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Estoque insuficiente");
         }
 
         BigDecimal valorTotal = produto.preco().multiply(BigDecimal.valueOf(dto.quantidade()));
