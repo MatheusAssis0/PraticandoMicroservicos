@@ -6,7 +6,7 @@ import jakarta.validation.Valid;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
 
-@FeignClient(name = "microservicos-produto")
+@FeignClient(name = "microservicos-produto", url = "${produto-service.url}")
 public interface ProdutoClient {
 
     @GetMapping("/produtos/{id}")

@@ -1,6 +1,6 @@
 package com.example.microservicos.pedido.service;
 
-import com.example.microservicos.pedido.client.ProdutoClient;
+import com.example.microservicos.pedido.model.DiminuirEstoqueDto;
 import com.example.microservicos.pedido.model.Pedido;
 import com.example.microservicos.pedido.model.PedidoRequestDto;
 import com.example.microservicos.pedido.model.ProdutoResponseDto;
@@ -37,7 +37,7 @@ class PedidoServiceTest {
     private PedidoRepository pedidoRepository;
 
     @Mock
-    private ProdutoClient produtoClient;
+    private ProdutoServiceClient produtoServiceClient;
 
     @Captor
     private ArgumentCaptor<Pedido> captor;
@@ -97,12 +97,13 @@ class PedidoServiceTest {
                 var valorTotal = produtoResponse.preco().multiply(BigDecimal.valueOf(pedidoRequestDto.quantidade()));
                 Pedido pedido = new Pedido(null, 1L, 2, valorTotal);
 
-                when(produtoClient.getProductById(1L)).thenReturn(produtoResponse);
+                when(produtoServiceClient.getProduto(1L)).thenReturn(produtoResponse);
                 when(pedidoRepository.save(any(Pedido.class))).thenReturn(pedido);
 
                 pedidoService.criarPedido(pedidoRequestDto);
 
                 then(pedidoRepository).should().save(captor.capture());
+                then(produtoServiceClient).should().decreaseStock(1L, new DiminuirEstoqueDto(2));
                 Pedido pedidoSalvo = captor.getValue();
 
                 Assertions.assertEquals(pedido.getProdutoId(), pedidoSalvo.getProdutoId());
@@ -121,7 +122,7 @@ class PedidoServiceTest {
                 Long id = 1L;
                 PedidoRequestDto pedidoRequestDto = new PedidoRequestDto(id, 2);
 
-                when(produtoClient.getProductById(1L)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "Produto não encontrado"));
+                when(produtoServiceClient.getProduto(1L)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "Produto não encontrado"));
 
                 var exception = Assertions.assertThrows(ResponseStatusException.class, () -> pedidoService.criarPedido(pedidoRequestDto));
 
@@ -138,13 +139,13 @@ class PedidoServiceTest {
                 PedidoRequestDto pedidoRequestDto = new PedidoRequestDto(id, 2);
                 ProdutoResponseDto produtoResponse = new ProdutoResponseDto(1L, "Lapis", BigDecimal.valueOf(2.50), 1);
 
-                when(produtoClient.getProductById(1L)).thenReturn(produtoResponse);
+                when(produtoServiceClient.getProduto(1L)).thenReturn(produtoResponse);
 
                 var exception = Assertions.assertThrows(ResponseStatusException.class, () -> pedidoService.criarPedido(pedidoRequestDto));
                 Assertions.assertEquals("Estoque insuficiente", exception.getReason());
                 Assertions.assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
                 then(pedidoRepository).should(never()).save(any());
-                then(produtoClient).should(never()).decreaseStock(anyLong(), any());
+                then(produtoServiceClient).should(never()).decreaseStock(anyLong(), any());
             }
         }
     }
