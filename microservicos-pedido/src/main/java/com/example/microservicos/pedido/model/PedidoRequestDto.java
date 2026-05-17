@@ -5,8 +5,8 @@ import jakarta.validation.constraints.Positive;
 
 import java.math.BigDecimal;
 
-public record PedidoRequestDto(@NotNull Long produtoId, @NotNull @Positive Integer quantidade) {
+public record PedidoRequestDto(Long pedidoId, @NotNull Long produtoId, @NotNull @Positive Integer quantidade) {
     public PedidoRequestDto(Pedido pedido) {
-        this(pedido.getProdutoId(), pedido.getQuantidade());
+        this(pedido.getId(), pedido.getProdutoId(), pedido.getQuantidade());
     }
 }

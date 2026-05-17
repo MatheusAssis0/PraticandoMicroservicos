@@ -1,9 +1,8 @@
 package com.example.microservicos.pedido.service;
 
-import com.example.microservicos.pedido.model.DiminuirEstoqueDto;
 import com.example.microservicos.pedido.model.Pedido;
 import com.example.microservicos.pedido.model.PedidoRequestDto;
-import com.example.microservicos.pedido.model.ProdutoResponseDto;
+import com.example.microservicos.pedido.model.Status;
 import com.example.microservicos.pedido.repository.PedidoRepository;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
@@ -15,16 +14,15 @@ import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.math.BigDecimal;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.then;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -37,7 +35,7 @@ class PedidoServiceTest {
     private PedidoRepository pedidoRepository;
 
     @Mock
-    private ProdutoServiceClient produtoServiceClient;
+    private RabbitTemplate rabbitTemplate;
 
     @Captor
     private ArgumentCaptor<Pedido> captor;
@@ -53,7 +51,7 @@ class PedidoServiceTest {
             void buscaPorIdSucesso() {
 
                 Long id = 1L;
-                Pedido pedido = new Pedido(id, id, 5, BigDecimal.valueOf(5));
+                Pedido pedido = new Pedido(id, id, 5, Status.PENDENTE);
                 when(pedidoRepository.findById(id)).thenReturn(Optional.of(pedido));
 
                 var pedidoDtoResponse = pedidoService.getPedido(id);
@@ -61,7 +59,7 @@ class PedidoServiceTest {
                 Assertions.assertEquals(pedido.getId(), pedidoDtoResponse.id());
                 Assertions.assertEquals(pedido.getProdutoId(), pedidoDtoResponse.produtoId());
                 Assertions.assertEquals(pedido.getQuantidade(), pedidoDtoResponse.quantidade());
-                Assertions.assertEquals(pedido.getValorTotal(), pedidoDtoResponse.valorTotal());
+                Assertions.assertEquals(pedido.getStatus(), pedidoDtoResponse.status());
             }
         }
         @DisplayName("Então deve falhar ao buscar")
@@ -92,60 +90,20 @@ class PedidoServiceTest {
             @Test
             void criarPedidoSucesso() {
 
-                PedidoRequestDto pedidoRequestDto = new PedidoRequestDto(1L, 2);
-                ProdutoResponseDto produtoResponse = new ProdutoResponseDto(1L, "Lapis", BigDecimal.valueOf(2.50), 200);
-                var valorTotal = produtoResponse.preco().multiply(BigDecimal.valueOf(pedidoRequestDto.quantidade()));
-                Pedido pedido = new Pedido(null, 1L, 2, valorTotal);
+                PedidoRequestDto pedidoRequestDto = new PedidoRequestDto(1L, 1L, 2);
+                Pedido pedido = new Pedido(null, 1L, 2, Status.PENDENTE);
 
-                when(produtoServiceClient.getProduto(1L)).thenReturn(produtoResponse);
                 when(pedidoRepository.save(any(Pedido.class))).thenReturn(pedido);
 
                 pedidoService.criarPedido(pedidoRequestDto);
 
                 then(pedidoRepository).should().save(captor.capture());
-                then(produtoServiceClient).should().decreaseStock(1L, new DiminuirEstoqueDto(2));
                 Pedido pedidoSalvo = captor.getValue();
 
                 Assertions.assertEquals(pedido.getProdutoId(), pedidoSalvo.getProdutoId());
                 Assertions.assertEquals(pedido.getQuantidade(), pedidoSalvo.getQuantidade());
-                Assertions.assertEquals(0, pedido.getValorTotal().compareTo(pedidoSalvo.getValorTotal()));
-            }
-        }
-
-        @DisplayName("Então deve falhar ao criar")
-        @Nested
-        class Falha {
-            @DisplayName("Dado um ID de produto inválido")
-            @Test
-            void criarPedidoFalhaIdProduto() {
-
-                Long id = 1L;
-                PedidoRequestDto pedidoRequestDto = new PedidoRequestDto(id, 2);
-
-                when(produtoServiceClient.getProduto(1L)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "Produto não encontrado"));
-
-                var exception = Assertions.assertThrows(ResponseStatusException.class, () -> pedidoService.criarPedido(pedidoRequestDto));
-
-                Assertions.assertEquals("Produto não encontrado", exception.getReason());
-                Assertions.assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
-                then(pedidoRepository).should(never()).save(any());
-            }
-
-            @DisplayName("Dado uma quantidade maior que o estoque")
-            @Test
-            void criarPedidoFalhaEstoqueInsuficiente () {
-
-                Long id = 1L;
-                PedidoRequestDto pedidoRequestDto = new PedidoRequestDto(id, 2);
-                ProdutoResponseDto produtoResponse = new ProdutoResponseDto(1L, "Lapis", BigDecimal.valueOf(2.50), 1);
-
-                when(produtoServiceClient.getProduto(1L)).thenReturn(produtoResponse);
-
-                var exception = Assertions.assertThrows(ResponseStatusException.class, () -> pedidoService.criarPedido(pedidoRequestDto));
-                Assertions.assertEquals("Estoque insuficiente", exception.getReason());
-                Assertions.assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
-                then(pedidoRepository).should(never()).save(any());
-                then(produtoServiceClient).should(never()).decreaseStock(anyLong(), any());
+                Assertions.assertEquals(Status.PENDENTE, pedidoSalvo.getStatus());
+                then(rabbitTemplate).should().convertAndSend(anyString(), any(PedidoRequestDto.class));
             }
         }
     }

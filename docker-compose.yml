@@ -7,6 +7,12 @@ services:
     ports:
       - "8761:8761"
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
   postgres:
     image: postgres:15
     environment:

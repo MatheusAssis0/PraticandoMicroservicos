@@ -1,26 +1,26 @@
 package com.example.microservicos.pedido.service;
 
-import com.example.microservicos.pedido.client.ProdutoClient;
-import com.example.microservicos.pedido.model.*;
+import com.example.microservicos.pedido.model.Pedido;
+import com.example.microservicos.pedido.model.PedidoRequestDto;
+import com.example.microservicos.pedido.model.PedidoResponseDto;
+import com.example.microservicos.pedido.model.Status;
 import com.example.microservicos.pedido.repository.PedidoRepository;
-import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
-import io.github.resilience4j.retry.annotation.Retry;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
-
-import java.math.BigDecimal;
 
 @Service
 public class PedidoService {
 
     private final PedidoRepository pedidoRepository;
 
-    private final ProdutoServiceClient produtoServiceClient;
+    private final RabbitTemplate rabbitTemplate;
 
-    public PedidoService(PedidoRepository pedidoRepository, ProdutoServiceClient produtoServiceClient) {
+
+    public PedidoService(PedidoRepository pedidoRepository, RabbitTemplate rabbitTemplate) {
         this.pedidoRepository = pedidoRepository;
-        this.produtoServiceClient = produtoServiceClient;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     public PedidoResponseDto getPedido(Long id){
@@ -33,23 +33,15 @@ public class PedidoService {
 
     public PedidoResponseDto criarPedido(PedidoRequestDto dto){
 
-        ProdutoResponseDto produto = produtoServiceClient.getProduto(dto.produtoId());
-
-        if(produto == null){
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Produto não encontrado");
-        }
-
-        if(produto.estoque() < dto.quantidade()){
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Estoque insuficiente");
-        }
-
-        BigDecimal valorTotal = produto.preco().multiply(BigDecimal.valueOf(dto.quantidade()));
-
-        produtoServiceClient.decreaseStock(dto.produtoId(), new DiminuirEstoqueDto(dto.quantidade()));
-
-        Pedido pedido = new Pedido(null, produto.id(), dto.quantidade(),  valorTotal);
+        Pedido pedido = new Pedido();
+        pedido.setProdutoId(dto.produtoId());
+        pedido.setQuantidade(dto.quantidade());
+        pedido.setStatus(Status.PENDENTE);
 
         pedidoRepository.save(pedido);
+
+        PedidoRequestDto evento = new PedidoRequestDto(pedido);
+        rabbitTemplate.convertAndSend("pedido.concluido", evento);
 
         return new PedidoResponseDto(pedido);
     }

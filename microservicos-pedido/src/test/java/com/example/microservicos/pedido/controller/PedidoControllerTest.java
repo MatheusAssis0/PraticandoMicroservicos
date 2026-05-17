@@ -2,6 +2,7 @@ package com.example.microservicos.pedido.controller;
 
 import com.example.microservicos.pedido.model.Pedido;
 import com.example.microservicos.pedido.model.PedidoResponseDto;
+import com.example.microservicos.pedido.model.Status;
 import com.example.microservicos.pedido.service.PedidoService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -14,8 +15,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.server.ResponseStatusException;
-
-import java.math.BigDecimal;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -42,7 +41,7 @@ class PedidoControllerTest {
             void buscarIdPedido() throws Exception {
 
                 Long id = 1L;
-                Pedido pedido = new Pedido(id, id, 1, BigDecimal.valueOf(1.0));
+                Pedido pedido = new Pedido(id, id, 1, Status.PENDENTE);
 
                 Mockito.when(pedidoService.getPedido(id)).thenReturn(new PedidoResponseDto(pedido));
 
@@ -51,7 +50,7 @@ class PedidoControllerTest {
                         .andExpect(jsonPath("$.id").value(id))
                         .andExpect(jsonPath("$.produtoId").value(id))
                         .andExpect(jsonPath("$.quantidade").value(1))
-                        .andExpect(jsonPath("$.valorTotal").value(1.0));
+                        .andExpect(jsonPath("$.status").value("PENDENTE"));
             }
         }
 
@@ -90,7 +89,7 @@ class PedidoControllerTest {
                         }
                         """;
 
-                PedidoResponseDto pedidoResponseDto = new PedidoResponseDto(1L, 1L, 1, BigDecimal.valueOf(2000));
+                PedidoResponseDto pedidoResponseDto = new PedidoResponseDto(1L, 1L, 1, Status.PENDENTE);
 
                 Mockito.when(pedidoService.criarPedido(Mockito.any())).thenReturn(pedidoResponseDto);
 
@@ -100,7 +99,7 @@ class PedidoControllerTest {
                         .andExpect(status().isCreated())
                         .andExpect(jsonPath("$.produtoId").value(1))
                         .andExpect(jsonPath("$.quantidade").value(1))
-                        .andExpect(jsonPath("$.valorTotal").value(2000));
+                        .andExpect(jsonPath("$.status").value("PENDENTE"));
             }
         }
 
@@ -139,49 +138,6 @@ class PedidoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                         .andExpect(status().isBadRequest());
             }
-
-            @DisplayName("Dado um produto inexistente")
-            @Test
-            void criarPedidoProdutoInexistente() throws Exception {
-
-                var json = """
-                        {
-                            "produtoId": 1,
-                            "quantidade": 1
-                        }
-                        """;
-
-                Mockito.when(pedidoService.criarPedido(Mockito.any()))
-                        .thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "Produto não encontrado"));
-
-                mockMvc.perform(post("/pedidos")
-                        .content(json)
-                        .contentType(MediaType.APPLICATION_JSON))
-                        .andExpect(status().isNotFound())
-                        .andExpect(status().reason("Produto não encontrado"));
-            }
-
-            @DisplayName("Dado estoque insuficiente")
-            @Test
-            void criarPedidoEstoqueInsuficiente() throws Exception {
-
-                var json = """
-                        {
-                            "produtoId": 1,
-                            "quantidade": 10
-                        }
-                        """;
-
-                Mockito.when(pedidoService.criarPedido(Mockito.any()))
-                        .thenThrow(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Estoque insuficiente"));
-
-                mockMvc.perform(post("/pedidos")
-                        .content(json)
-                        .contentType(MediaType.APPLICATION_JSON))
-                        .andExpect(status().isBadRequest())
-                        .andExpect(status().reason("Estoque insuficiente"));
-            }
         }
     }
-
 }

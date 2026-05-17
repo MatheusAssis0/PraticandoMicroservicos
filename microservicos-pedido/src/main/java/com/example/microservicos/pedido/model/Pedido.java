@@ -2,8 +2,6 @@ package com.example.microservicos.pedido.model;
 
 import jakarta.persistence.*;
 
-import java.math.BigDecimal;
-
 @Entity
 public class Pedido {
 
@@ -15,20 +13,17 @@ public class Pedido {
 
     private Integer quantidade;
 
-    private BigDecimal valorTotal;
+    @Enumerated(EnumType.STRING)
+    private Status status;
 
-    public Pedido(Long id, Long produtoId, Integer quantidade, BigDecimal valorTotal) {
+    public Pedido(Long id, Long produtoId, Integer quantidade, Status status) {
         this.id = id;
         this.produtoId = produtoId;
         this.quantidade = quantidade;
-        this.valorTotal = valorTotal;
+        this.status = status;
     }
 
     public Pedido() {
-    }
-
-    public BigDecimal getValorTotal() {
-        return valorTotal;
     }
 
     public Integer getQuantidade() {
@@ -41,5 +36,21 @@ public class Pedido {
 
     public Long getId() {
         return id;
+    }
+
+    public void setProdutoId(Long produtoId) {
+        this.produtoId = produtoId;
+    }
+
+    public void setQuantidade(Integer quantidade) {
+        this.quantidade = quantidade;
+    }
+
+    public Status getStatus() {
+        return status;
+    }
+
+    public void setStatus(Status status) {
+        this.status = status;
     }
 }
